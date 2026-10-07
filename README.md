@@ -231,29 +231,33 @@ Blueprint 会创建两个 Web Service：
 - `zhangxinchuang-server`：手机端连接的同步后端。
 - `zhangxinchuang-mcp`：AI/MCP 客户端连接的 MCP 服务。
 
-Blueprint 会自动生成并共享：
+Blueprint 会自动生成：
 
 - `LINJIAN_TOKEN`：手机端、后端和 MCP 共同使用的访问令牌。
+- `MCP_ACCESS_TOKEN`：只注入 MCP 服务、用于保护公网入口的独立访问令牌。
 - `LINJIAN_DEFAULT_DEVICE`：默认设备 ID，默认 `android-phone`。
 - `LINJIAN_URL`：MCP 自动引用 `zhangxinchuang-server` 的公网 HTTPS 地址，不需要手动填写。
 
 部署完成后：
 
 1. 打开 `zhangxinchuang-server` 的公网地址，访问 `/health`，看到 `ok: true` 即后端在线。
-2. 打开 `zhangxinchuang-mcp` 的公网地址，访问 `/health`，看到 `has_url: true`、`has_token: true` 即 MCP 配置完成。
+2. 打开 `zhangxinchuang-mcp` 的公网地址，访问 `/health`，看到 `has_url: true`、`has_token: true`、`mcp_access_token_configured: true` 即 MCP 配置完成。健康页只返回配置状态，不公开后端地址或密钥。
 3. 在 Android 设置页填写：
    - 服务器地址：`zhangxinchuang-server` 的公网地址，不要多余斜杠。
    - Token：Render 自动生成的同一个 `LINJIAN_TOKEN`。
    - 设备 ID：建议与 `LINJIAN_DEFAULT_DEVICE` 一致，例如 `android-phone`。
 4. 在 AI/MCP 客户端里填写 MCP 地址：
-   - Streamable HTTP：`https://你的-mcp-域名/mcp`
-   - SSE：`https://你的-mcp-域名/sse`
+   - 首选：用 `Authorization: Bearer <MCP_ACCESS_TOKEN>` 连接 `https://你的-mcp-域名/mcp`。
+   - 客户端不能配置请求头时：`https://你的-mcp-域名/mcp?access_token=<MCP_ACCESS_TOKEN>`。
+   - SSE 同样需要鉴权：`https://你的-mcp-域名/sse?access_token=<MCP_ACCESS_TOKEN>`。
+
+不要分享带 `access_token` 的完整 URL。查询参数是为了兼容只能填写 URL 的客户端；支持请求头的客户端应优先使用 Bearer 认证。
 
 如果你是从旧版 0.3.6.3 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
 
 如果你重新同步/刷新 Blueprint，新版会自动把 `LINJIAN_URL` 改为引用 server 的公网 `RENDER_EXTERNAL_URL`；如果你只点 **Redeploy**，也可以依靠新版 MCP 的兜底逻辑修复，不需要用户手动复制 URL。
 
-验证方式：打开 `zhangxinchuang-mcp` 的 `/health`，如果看到 `fallback_linjian_urls` 里出现 `https://...onrender.com`，说明旧内网地址兼容逻辑已经生效。
+验证方式：打开 `zhangxinchuang-mcp` 的 `/health`，确认 `has_url`、`has_token`、`mcp_access_token_configured` 都为 `true`。后端候选地址不再通过公开健康页展示。
 
 ## Railway 手动双服务部署
 
@@ -319,6 +323,7 @@ Start Command：pnpm start
 ```env
 LINJIAN_URL=https://你的-server-域名
 LINJIAN_TOKEN=第一步生成的同一个长随机token
+MCP_ACCESS_TOKEN=另一个新生成的长随机token
 LINJIAN_DEFAULT_DEVICE=android-phone
 ```
 
@@ -332,16 +337,16 @@ https://你的-mcp-域名/health
 
 看到 `ok: true`、`has_url: true`、`has_token: true` 就说明 MCP 可用。注意：AI/MCP 客户端只能填写 MCP 服务域名，不能把 server 域名加 `/mcp` 当作 MCP 地址。
 
-AI/MCP 客户端连接：
+AI/MCP 客户端连接（优先配置 `Authorization: Bearer <MCP_ACCESS_TOKEN>`）：
 
 ```text
-https://你的-mcp-域名/mcp
+https://你的-mcp-域名/mcp?access_token=你的MCP_ACCESS_TOKEN
 ```
 
 或：
 
 ```text
-https://你的-mcp-域名/sse
+https://你的-mcp-域名/sse?access_token=你的MCP_ACCESS_TOKEN
 ```
 
 ### 第四步：连接 Android
