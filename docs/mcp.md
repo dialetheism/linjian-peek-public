@@ -10,7 +10,7 @@
 - `mark_diary_annotations_seen`：读完后标记已看。
 - `delete_diary_annotation`：删除指定纸条，需确认。
 
-掌心窗 MCP 服务把手机端能力暴露给支持 MCP 的客户端。所有工具都需要你自己的 `LINJIAN_TOKEN`，并且手机端需要保持服务启动。公开版工具只保留通用能力，不包含私人绑定接口、私人 Token、私人服务地址或固定私人关系。
+掌心窗 MCP 服务把手机端能力暴露给支持 MCP 的客户端。后端 API 使用 `LINJIAN_TOKEN`，公网 MCP 入口另外使用 `MCP_ACCESS_TOKEN`；手机端需要保持服务启动。公开版工具只保留通用能力，不包含私人绑定接口、私人 Token、私人服务地址或固定私人关系。
 
 ## 连接方式
 
@@ -26,17 +26,22 @@ http://127.0.0.1:8787/sse
 公网部署后将域名替换为自己的 MCP 服务域名，例如：
 
 ```text
-https://你的-mcp-域名/mcp
-https://你的-mcp-域名/sse
+https://你的-mcp-域名/mcp?access_token=你的MCP_ACCESS_TOKEN
+https://你的-mcp-域名/sse?access_token=你的MCP_ACCESS_TOKEN
 ```
+
+如果客户端支持请求头，优先使用 `Authorization: Bearer <MCP_ACCESS_TOKEN>`，并连接不带查询参数的 `/mcp` 或 `/sse`。也兼容 `X-MCP-Token`、`X-Auth-Token` 和 `X-Linjian-Token`。不要分享带访问令牌的完整 URL。
 
 必需环境变量：
 
 ```env
 LINJIAN_URL=https://你的-server-域名
 LINJIAN_TOKEN=你的长随机token
+MCP_ACCESS_TOKEN=另一个长随机token
 LINJIAN_DEFAULT_DEVICE=android-phone
 ```
+
+未配置 `MCP_ACCESS_TOKEN` 的旧部署会临时回退使用 `LINJIAN_TOKEN` 保护 MCP 入口，便于平滑迁移；新部署应始终配置独立令牌。
 
 Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的公网 `RENDER_EXTERNAL_URL`；旧版部署只重新部署 MCP 时，新版代码也会把旧内网 `hostport` 自动兜底为公网地址。手动部署或 Railway 部署时再按上面格式填写。
 
