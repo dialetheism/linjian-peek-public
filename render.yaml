@@ -41,6 +41,8 @@ services:
     startCommand: npm start
     envVars:
       - fromGroup: zhangxinchuang-public-shared
+      - key: MCP_ACCESS_TOKEN
+        generateValue: true
       # 自动取 server 的公网 HTTPS 地址，例如 https://zhangxinchuang-server-xxxx.onrender.com
       # 不再取 property: hostport，避免部分环境下 MCP 访问 Render 内网地址 fetch failed。
       - key: LINJIAN_URL
