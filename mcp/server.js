@@ -5,6 +5,7 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
+import { createMcpAuthMiddleware } from "./auth.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const RAW_LINJIAN_URL = (process.env.LINJIAN_URL || "").trim();
@@ -49,6 +50,9 @@ function effectiveLinjianUrl() {
   return activeLinjianUrl || LINJIAN_URL_CANDIDATES[0] || "";
 }
 const LINJIAN_TOKEN = process.env.LINJIAN_TOKEN || "";
+// Prefer a dedicated public-MCP credential. Existing deployments remain
+// migratable by falling back to the already-generated backend token.
+const MCP_ACCESS_TOKEN = process.env.MCP_ACCESS_TOKEN || LINJIAN_TOKEN;
 const DEFAULT_DEVICE = process.env.LINJIAN_DEFAULT_DEVICE || "android-phone";
 
 // v0.3.6.6：公开 MCP 经常被平台限制在 20 秒内返回。
@@ -2176,6 +2180,7 @@ function makeServer() {
 }
 
 const app = express();
+const requireMcpAuth = createMcpAuthMiddleware(MCP_ACCESS_TOKEN);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
@@ -2187,6 +2192,9 @@ app.use((req, res, next) => {
     [
       "Content-Type",
       "Authorization",
+      "X-MCP-Token",
+      "X-Auth-Token",
+      "X-Linjian-Token",
       "MCP-Protocol-Version",
       "MCP-Session-Id",
       "Mcp-Session-Id",
@@ -2214,9 +2222,8 @@ app.get("/health", (_req, res) => res.json({
   version: "0.3.9.0",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
-  configured_linjian_url: RAW_LINJIAN_URL || "",
-  effective_linjian_url: effectiveLinjianUrl(),
-  fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL),
+  mcp_auth_required: true,
+  mcp_access_token_configured: Boolean(MCP_ACCESS_TOKEN),
   guardian_day_tools: true,
   diary_tools: true,
   diary_rename_fix: true,
@@ -2256,7 +2263,7 @@ function sanitizeMcpRequestBody(body) {
   return sanitizeMcpInitializeMessage(body);
 }
 
-app.post("/mcp", async (req, res) => {
+app.post("/mcp", requireMcpAuth, async (req, res) => {
   try {
     const server = makeServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -2269,8 +2276,8 @@ app.post("/mcp", async (req, res) => {
     if (!res.headersSent) res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: String(err?.message || err) }, id: null });
   }
 });
-app.get("/mcp", (_req, res) => res.status(405).json({ ok: false, error: "Use POST /mcp for Streamable HTTP MCP." }));
-app.post("/mcp-wallet", async (req, res) => {
+app.get("/mcp", requireMcpAuth, (_req, res) => res.status(405).json({ ok: false, error: "Use POST /mcp for Streamable HTTP MCP." }));
+app.post("/mcp-wallet", requireMcpAuth, async (req, res) => {
   try {
     const server = makeWalletTakeoutServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -2283,9 +2290,9 @@ app.post("/mcp-wallet", async (req, res) => {
     if (!res.headersSent) res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: String(err?.message || err) }, id: null });
   }
 });
-app.get("/mcp-wallet", (_req, res) => res.status(405).json({ ok: false, error: "Use POST /mcp-wallet for wallet/takeout Streamable HTTP MCP.", endpoint: "/mcp-wallet" }));
+app.get("/mcp-wallet", requireMcpAuth, (_req, res) => res.status(405).json({ ok: false, error: "Use POST /mcp-wallet for wallet/takeout Streamable HTTP MCP.", endpoint: "/mcp-wallet" }));
 const sseTransports = new Map();
-app.get("/sse", async (_req, res) => {
+app.get("/sse", requireMcpAuth, async (_req, res) => {
   try { const transport = new SSEServerTransport("/messages", res); sseTransports.set(transport.sessionId, transport); res.on("close", () => { sseTransports.delete(transport.sessionId); transport.close(); }); await makeServer().connect(transport); }
   catch (err) { console.error(err); if (!res.headersSent) res.status(500).end(String(err?.message || err)); }
 });
