@@ -11,8 +11,8 @@ import java.util.Map;
 
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
-    public static final String APP_VERSION_NAME = "0.3.9.2";
-    public static final int APP_VERSION_CODE = 30902;
+    public static final String APP_VERSION_NAME = "0.3.9.3";
+    public static final int APP_VERSION_CODE = 30903;
     public static final String KEY_SERVER = "server_url";
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
@@ -74,6 +74,7 @@ public class AppPrefs {
     public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_PACKAGE = "sleep_guard_proxy_last_non_self_package";
     public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_WALL_MS = "sleep_guard_proxy_last_non_self_wall_ms";
     public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS = "sleep_guard_proxy_last_non_self_elapsed_ms";
+    public static final String KEY_SLEEP_GUARD_PROXY_PACKAGE_BREAKDOWN = "sleep_guard_proxy_package_breakdown_v1";
     public static final String DEFAULT_USER_NAME = "宝宝";
     public static final String DEFAULT_COMPANION_NAME = "陪伴者";
     // 仅用于从旧公开版平滑迁移，新的 UI 和业务逻辑不再写入这两个键。

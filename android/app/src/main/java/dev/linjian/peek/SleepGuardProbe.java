@@ -270,7 +270,38 @@ public final class SleepGuardProbe {
         out.append("  TYPE_WINDOW_STATE_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_WINDOW_STATE_CHANGED)).append("\n");
         out.append("  TYPE_WINDOWS_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_WINDOWS_CHANGED)).append("\n");
         out.append("掌心窗自身事件数量：").append(proxy.selfPackageCount).append("\n");
-        out.append("提示：环境事件可能由动画自动产生，不能直接视为触摸。");
+        out.append("提示：环境事件可能由动画自动产生，不能直接视为触摸。\n\n");
+        out.append("按包名事件明细（最近活跃，最多 ")
+                .append(SleepGuardEventStats.MAX_EXTERNAL_PACKAGES).append(" 个）\n");
+        if (proxy.packages.isEmpty()) {
+            out.append("尚未收到有效外部包事件");
+        } else {
+            for (int i = 0; i < proxy.packages.size(); i++) {
+                SleepGuardEventStats.PackageSnapshot entry = proxy.packages.get(i);
+                if (i > 0) out.append("\n");
+                out.append("[").append(i + 1).append("] ").append(entry.packageName).append("\n");
+                out.append("最近：").append(SleepGuardEventStats.typeName(entry.lastEventType))
+                        .append("｜").append(formatLocalTime(entry.lastEventWallMs))
+                        .append("｜距今 ").append(entry.lastEventWallMs <= 0L ? "-" :
+                                SleepGuardProbeClock.safeElapsedAgeSeconds(
+                                        nowWall, nowElapsed, entry.lastEventWallMs,
+                                        entry.lastEventElapsedMs) + " 秒")
+                        .append("\n");
+                out.append("主动：").append(entry.directTotal())
+                        .append("（点击 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_CLICKED))
+                        .append("，长按 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_LONG_CLICKED))
+                        .append("，滚动 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_SCROLLED))
+                        .append("，文本 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_TEXT_CHANGED))
+                        .append("，选中 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_SELECTED))
+                        .append("，聚焦 ").append(entry.countForType(SleepGuardEventStats.TYPE_VIEW_FOCUSED))
+                        .append("）\n");
+                out.append("环境：").append(entry.ambientTotal())
+                        .append("（内容 ").append(entry.countForType(SleepGuardEventStats.TYPE_WINDOW_CONTENT_CHANGED))
+                        .append("，状态 ").append(entry.countForType(SleepGuardEventStats.TYPE_WINDOW_STATE_CHANGED))
+                        .append("，窗口 ").append(entry.countForType(SleepGuardEventStats.TYPE_WINDOWS_CHANGED))
+                        .append("）\n");
+            }
+        }
         return out.toString();
     }
 
@@ -379,6 +410,12 @@ public final class SleepGuardProbe {
                 prefs.getString(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_PACKAGE, ""),
                 prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_WALL_MS, 0L),
                 prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS, 0L));
+        String encodedBreakdown = prefs.getString(
+                AppPrefs.KEY_SLEEP_GUARD_PROXY_PACKAGE_BREAKDOWN, "");
+        if (!eventStats.restorePackageBreakdown(encodedBreakdown)
+                && encodedBreakdown != null && !encodedBreakdown.isEmpty()) {
+            pendingPersist = true;
+        }
         if (enabled && usageCursor.timestampMs() <= 0L) {
             usageCursor.clear(System.currentTimeMillis());
             pendingPersist = true;
@@ -482,6 +519,8 @@ public final class SleepGuardProbe {
                         proxy.lastNonSelfWallMs)
                 .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS,
                         proxy.lastNonSelfElapsedMs)
+                .putString(AppPrefs.KEY_SLEEP_GUARD_PROXY_PACKAGE_BREAKDOWN,
+                        eventStats.encodePackageBreakdown())
                 .commit();
         pendingPersist = false;
         lastPersistElapsedMs = SystemClock.elapsedRealtime();
@@ -490,6 +529,13 @@ public final class SleepGuardProbe {
     private static String formatLocal(long timestampMs) {
         if (timestampMs <= 0L) return "尚未收到";
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
+        format.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        return format.format(new Date(timestampMs));
+    }
+
+    private static String formatLocalTime(long timestampMs) {
+        if (timestampMs <= 0L) return "-";
+        SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss", Locale.CHINA);
         format.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
         return format.format(new Date(timestampMs));
     }
