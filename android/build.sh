@@ -8,6 +8,7 @@ BUILD_TOOLS=$ANDROID_HOME/build-tools/34.0.0
 
 PROJECT="$(cd "$(dirname "$0")" && pwd)"
 SRC=$PROJECT/app/src/main
+TEST_SRC=$PROJECT/app/src/test/java
 OUT=$PROJECT/build
 PKG_PATH=dev/linjian/peek
 
@@ -18,7 +19,14 @@ if [ ! -f "$PLATFORM" ]; then
 fi
 
 rm -rf "$OUT"
-mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/apk" "$OUT/compiled_res"
+mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/test-classes" "$OUT/apk" "$OUT/compiled_res"
+
+echo "=== Running pure Java tests ==="
+javac -encoding UTF-8 -source 11 -target 11 \
+    -d "$OUT/test-classes" \
+    "$SRC/java/$PKG_PATH/SleepGuardProbeClock.java" \
+    "$TEST_SRC/$PKG_PATH/SleepGuardProbeClockTest.java"
+java -ea -cp "$OUT/test-classes" dev.linjian.peek.SleepGuardProbeClockTest
 
 echo "=== Compiling resources ==="
 $BUILD_TOOLS/aapt2 compile --dir "$SRC/res" -o "$OUT/compiled_res/"
@@ -65,15 +73,15 @@ $BUILD_TOOLS/apksigner sign \
     --ks-pass pass:"$PUBLIC_KS_PASSWORD" \
     --key-pass pass:"$PUBLIC_KS_PASSWORD" \
     --ks-key-alias zhangxinchuang-public \
-    --out "$PROJECT/Zhangxinchuang-public-v0.3.9.0.apk" \
+    --out "$PROJECT/Zhangxinchuang-public-v0.3.9.1.apk" \
     app.aligned.apk
 
 echo "=== Verifying fixed public signature ==="
-VERIFY_OUTPUT=$($BUILD_TOOLS/apksigner verify --verbose --print-certs "$PROJECT/Zhangxinchuang-public-v0.3.9.0.apk")
+VERIFY_OUTPUT=$($BUILD_TOOLS/apksigner verify --verbose --print-certs "$PROJECT/Zhangxinchuang-public-v0.3.9.1.apk")
 echo "$VERIFY_OUTPUT"
 echo "$VERIFY_OUTPUT" | grep -qi "aea75c9b2b5f5c42d56b72d4a69a79a38e1c57f27db021017be8656bc8f002fb"
 
 echo ""
 echo "=== Done ==="
-echo "APK: $PROJECT/Zhangxinchuang-public-v0.3.9.0.apk"
-ls -lh "$PROJECT/Zhangxinchuang-public-v0.3.9.0.apk"
+echo "APK: $PROJECT/Zhangxinchuang-public-v0.3.9.1.apk"
+ls -lh "$PROJECT/Zhangxinchuang-public-v0.3.9.1.apk"

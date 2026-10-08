@@ -11,8 +11,8 @@ import java.util.Map;
 
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
-    public static final String APP_VERSION_NAME = "0.3.9.0";
-    public static final int APP_VERSION_CODE = 30900;
+    public static final String APP_VERSION_NAME = "0.3.9.1";
+    public static final int APP_VERSION_CODE = 30901;
     public static final String KEY_SERVER = "server_url";
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
@@ -46,6 +46,20 @@ public class AppPrefs {
     public static final String KEY_JOURNEY_ENABLED = "today_journey_enabled";
     public static final String KEY_SHOW_COMPANION_ACTIONS = "show_companion_actions";
     public static final String KEY_COMPANION_FIRST_DAY = "companion_first_day_ms";
+    public static final String KEY_SLEEP_GUARD_PROBE_ENABLED = "sleep_guard_probe_enabled";
+    public static final String KEY_SLEEP_GUARD_A11Y_START_COUNT = "sleep_guard_a11y_start_count";
+    public static final String KEY_SLEEP_GUARD_A11Y_END_COUNT = "sleep_guard_a11y_end_count";
+    public static final String KEY_SLEEP_GUARD_A11Y_START_WALL_MS = "sleep_guard_a11y_start_wall_ms";
+    public static final String KEY_SLEEP_GUARD_A11Y_START_ELAPSED_MS = "sleep_guard_a11y_start_elapsed_ms";
+    public static final String KEY_SLEEP_GUARD_A11Y_START_PACKAGE = "sleep_guard_a11y_start_package";
+    public static final String KEY_SLEEP_GUARD_A11Y_END_WALL_MS = "sleep_guard_a11y_end_wall_ms";
+    public static final String KEY_SLEEP_GUARD_A11Y_END_ELAPSED_MS = "sleep_guard_a11y_end_elapsed_ms";
+    public static final String KEY_SLEEP_GUARD_USAGE_COUNT = "sleep_guard_usage_count";
+    public static final String KEY_SLEEP_GUARD_USAGE_EVENT_MS = "sleep_guard_usage_event_ms";
+    public static final String KEY_SLEEP_GUARD_USAGE_PACKAGE = "sleep_guard_usage_package";
+    public static final String KEY_SLEEP_GUARD_USAGE_DELAY_MS = "sleep_guard_usage_delay_ms";
+    public static final String KEY_SLEEP_GUARD_USAGE_CURSOR_MS = "sleep_guard_usage_cursor_ms";
+    public static final String KEY_SLEEP_GUARD_USAGE_CURSOR_PACKAGES = "sleep_guard_usage_cursor_packages";
     public static final String DEFAULT_USER_NAME = "宝宝";
     public static final String DEFAULT_COMPANION_NAME = "陪伴者";
     // 仅用于从旧公开版平滑迁移，新的 UI 和业务逻辑不再写入这两个键。
