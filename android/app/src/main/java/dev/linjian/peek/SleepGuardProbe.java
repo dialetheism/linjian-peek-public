@@ -50,6 +50,7 @@ public final class SleepGuardProbe {
     private static String lastUsagePackage = "";
     private static long lastUsageDelayMs;
     private static SleepGuardProbeClock.Cursor usageCursor = new SleepGuardProbeClock.Cursor(0L, "");
+    private static final SleepGuardEventStats eventStats = new SleepGuardEventStats();
 
     private SleepGuardProbe() { }
 
@@ -146,6 +147,7 @@ public final class SleepGuardProbe {
             lastUsageEventMs = 0L;
             lastUsagePackage = "";
             lastUsageDelayMs = 0L;
+            eventStats.clear();
             usageCursor.clear(enabled ? System.currentTimeMillis() : 0L);
             pendingPersist = true;
             persistLocked();
@@ -172,6 +174,20 @@ public final class SleepGuardProbe {
             } else {
                 return;
             }
+            pendingPersist = true;
+            scheduleFlushLocked(elapsedNow);
+        }
+    }
+
+    public static void onAccessibilityEventType(Context context, int eventType, String eventPackage) {
+        if (context == null) return;
+        long wallNow = System.currentTimeMillis();
+        long elapsedNow = SystemClock.elapsedRealtime();
+        Context app = context.getApplicationContext();
+        synchronized (LOCK) {
+            ensureLoadedLocked(app);
+            if (!eventStats.record(enabled, app.getPackageName(), eventType, eventPackage,
+                    wallNow, elapsedNow)) return;
             pendingPersist = true;
             scheduleFlushLocked(elapsedNow);
         }
@@ -231,7 +247,30 @@ public final class SleepGuardProbe {
         out.append("最后 USER_INTERACTION：").append(formatLocal(snapshot.lastUsageEventMs)).append("\n");
         out.append("距今：").append(snapshot.lastUsageEventMs <= 0 ? "-" :
                 SleepGuardProbeClock.nonNegativeAgeSeconds(nowWall, snapshot.lastUsageEventMs) + " 秒").append("\n");
-        out.append("观察延迟：").append(snapshot.lastUsageEventMs <= 0 ? "-" : snapshot.lastUsageDelayMs + " 毫秒");
+        out.append("观察延迟：").append(snapshot.lastUsageEventMs <= 0 ? "-" : snapshot.lastUsageDelayMs + " 毫秒")
+                .append("\n\n");
+
+        SleepGuardEventStats.Snapshot proxy = snapshot.eventStats;
+        out.append("A11Y 事件类型代理（非掌心窗）\n");
+        out.append("最近事件类型：").append(SleepGuardEventStats.typeName(proxy.lastNonSelfType)).append("\n");
+        out.append("最近事件包名：").append(empty(proxy.lastNonSelfPackage)).append("\n");
+        out.append("最近事件时间：").append(formatLocal(proxy.lastNonSelfWallMs)).append("\n");
+        out.append("距今：").append(proxy.lastNonSelfWallMs <= 0 ? "-" :
+                SleepGuardProbeClock.safeElapsedAgeSeconds(nowWall, nowElapsed,
+                        proxy.lastNonSelfWallMs, proxy.lastNonSelfElapsedMs) + " 秒").append("\n");
+        out.append("主动候选事件总数：").append(proxy.directTotal()).append("\n");
+        out.append("  TYPE_VIEW_CLICKED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_CLICKED)).append("\n");
+        out.append("  TYPE_VIEW_LONG_CLICKED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_LONG_CLICKED)).append("\n");
+        out.append("  TYPE_VIEW_SCROLLED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_SCROLLED)).append("\n");
+        out.append("  TYPE_VIEW_TEXT_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_TEXT_CHANGED)).append("\n");
+        out.append("  TYPE_VIEW_SELECTED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_SELECTED)).append("\n");
+        out.append("  TYPE_VIEW_FOCUSED：").append(proxy.countForType(SleepGuardEventStats.TYPE_VIEW_FOCUSED)).append("\n");
+        out.append("环境事件总数：").append(proxy.ambientTotal()).append("\n");
+        out.append("  TYPE_WINDOW_CONTENT_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_WINDOW_CONTENT_CHANGED)).append("\n");
+        out.append("  TYPE_WINDOW_STATE_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_WINDOW_STATE_CHANGED)).append("\n");
+        out.append("  TYPE_WINDOWS_CHANGED：").append(proxy.countForType(SleepGuardEventStats.TYPE_WINDOWS_CHANGED)).append("\n");
+        out.append("掌心窗自身事件数量：").append(proxy.selfPackageCount).append("\n");
+        out.append("提示：环境事件可能由动画自动产生，不能直接视为触摸。");
         return out.toString();
     }
 
@@ -240,7 +279,8 @@ public final class SleepGuardProbe {
             ensureLoadedLocked(context.getApplicationContext());
             return new Snapshot(enabled, serviceConnected, a11yStartCount, a11yEndCount,
                     lastA11yStartWallMs, lastA11yStartElapsedMs, lastA11yStartPackage,
-                    usageCount, lastUsageEventMs, lastUsagePackage, lastUsageDelayMs);
+                    usageCount, lastUsageEventMs, lastUsagePackage, lastUsageDelayMs,
+                    eventStats.snapshot());
         }
     }
 
@@ -314,6 +354,31 @@ public final class SleepGuardProbe {
         usageCursor = new SleepGuardProbeClock.Cursor(
                 prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_USAGE_CURSOR_MS, 0L),
                 prefs.getString(AppPrefs.KEY_SLEEP_GUARD_USAGE_CURSOR_PACKAGES, ""));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_CLICKED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_CLICKED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_LONG_CLICKED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_LONG_CLICKED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_SCROLLED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_SCROLLED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_TEXT_CHANGED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_TEXT_CHANGED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_SELECTED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_SELECTED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_VIEW_FOCUSED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_FOCUSED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_WINDOW_CONTENT_CHANGED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOW_CONTENT_CHANGED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_WINDOW_STATE_CHANGED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOW_STATE_CHANGED_COUNT, 0L));
+        eventStats.restoreCount(SleepGuardEventStats.TYPE_WINDOWS_CHANGED,
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOWS_CHANGED_COUNT, 0L));
+        eventStats.restoreSelfPackageCount(
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_SELF_PACKAGE_COUNT, 0L));
+        eventStats.restoreLastNonSelf(
+                prefs.getInt(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_TYPE, 0),
+                prefs.getString(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_PACKAGE, ""),
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_WALL_MS, 0L),
+                prefs.getLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS, 0L));
         if (enabled && usageCursor.timestampMs() <= 0L) {
             usageCursor.clear(System.currentTimeMillis());
             pendingPersist = true;
@@ -360,7 +425,7 @@ public final class SleepGuardProbe {
     }
 
     private static void scheduleFlushLocked(long elapsedNow) {
-        if (!pendingPersist || flushScheduled) return;
+        if (!SleepGuardProbeClock.shouldSchedulePersistence(pendingPersist, flushScheduled)) return;
         if (workerHandler == null) {
             persistLocked();
             return;
@@ -373,6 +438,7 @@ public final class SleepGuardProbe {
 
     private static void persistLocked() {
         if (!pendingPersist || appContext == null) return;
+        SleepGuardEventStats.Snapshot proxy = eventStats.snapshot();
         AppPrefs.get(appContext).edit()
                 .putBoolean(AppPrefs.KEY_SLEEP_GUARD_PROBE_ENABLED, enabled)
                 .putLong(AppPrefs.KEY_SLEEP_GUARD_A11Y_START_COUNT, a11yStartCount)
@@ -388,6 +454,34 @@ public final class SleepGuardProbe {
                 .putLong(AppPrefs.KEY_SLEEP_GUARD_USAGE_DELAY_MS, lastUsageDelayMs)
                 .putLong(AppPrefs.KEY_SLEEP_GUARD_USAGE_CURSOR_MS, usageCursor.timestampMs())
                 .putString(AppPrefs.KEY_SLEEP_GUARD_USAGE_CURSOR_PACKAGES, usageCursor.encodedPackages())
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_CLICKED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_CLICKED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_LONG_CLICKED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_LONG_CLICKED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_SCROLLED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_SCROLLED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_TEXT_CHANGED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_TEXT_CHANGED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_SELECTED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_SELECTED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_VIEW_FOCUSED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_VIEW_FOCUSED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOW_CONTENT_CHANGED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_WINDOW_CONTENT_CHANGED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOW_STATE_CHANGED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_WINDOW_STATE_CHANGED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_WINDOWS_CHANGED_COUNT,
+                        proxy.countForType(SleepGuardEventStats.TYPE_WINDOWS_CHANGED))
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_SELF_PACKAGE_COUNT,
+                        proxy.selfPackageCount)
+                .putInt(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_TYPE,
+                        proxy.lastNonSelfType)
+                .putString(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_PACKAGE,
+                        proxy.lastNonSelfPackage)
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_WALL_MS,
+                        proxy.lastNonSelfWallMs)
+                .putLong(AppPrefs.KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS,
+                        proxy.lastNonSelfElapsedMs)
                 .commit();
         pendingPersist = false;
         lastPersistElapsedMs = SystemClock.elapsedRealtime();
@@ -416,12 +510,14 @@ public final class SleepGuardProbe {
         final long lastUsageEventMs;
         final String lastUsagePackage;
         final long lastUsageDelayMs;
+        final SleepGuardEventStats.Snapshot eventStats;
 
         Snapshot(boolean enabled, boolean serviceConnected,
                  long a11yStartCount, long a11yEndCount,
                  long lastA11yStartWallMs, long lastA11yStartElapsedMs,
                  String lastA11yStartPackage, long usageCount, long lastUsageEventMs,
-                 String lastUsagePackage, long lastUsageDelayMs) {
+                  String lastUsagePackage, long lastUsageDelayMs,
+                  SleepGuardEventStats.Snapshot eventStats) {
             this.enabled = enabled;
             this.serviceConnected = serviceConnected;
             this.a11yStartCount = a11yStartCount;
@@ -433,6 +529,7 @@ public final class SleepGuardProbe {
             this.lastUsageEventMs = lastUsageEventMs;
             this.lastUsagePackage = lastUsagePackage;
             this.lastUsageDelayMs = lastUsageDelayMs;
+            this.eventStats = eventStats;
         }
     }
 }

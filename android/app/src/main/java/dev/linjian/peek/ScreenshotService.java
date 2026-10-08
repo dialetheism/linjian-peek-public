@@ -105,6 +105,8 @@ public class ScreenshotService extends AccessibilityService {
         CharSequence pkg = event.getPackageName();
         if (pkg != null) currentPackage = pkg.toString();
         int t = event.getEventType();
+        SleepGuardProbe.onAccessibilityEventType(this, t,
+                pkg == null ? null : pkg.toString());
         if (t == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START
                 || t == AccessibilityEvent.TYPE_TOUCH_INTERACTION_END) {
             SleepGuardProbe.onAccessibilityTouch(this, t, currentPackage());

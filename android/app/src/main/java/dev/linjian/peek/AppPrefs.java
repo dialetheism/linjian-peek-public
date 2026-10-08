@@ -11,8 +11,8 @@ import java.util.Map;
 
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
-    public static final String APP_VERSION_NAME = "0.3.9.1";
-    public static final int APP_VERSION_CODE = 30901;
+    public static final String APP_VERSION_NAME = "0.3.9.2";
+    public static final int APP_VERSION_CODE = 30902;
     public static final String KEY_SERVER = "server_url";
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
@@ -60,6 +60,20 @@ public class AppPrefs {
     public static final String KEY_SLEEP_GUARD_USAGE_DELAY_MS = "sleep_guard_usage_delay_ms";
     public static final String KEY_SLEEP_GUARD_USAGE_CURSOR_MS = "sleep_guard_usage_cursor_ms";
     public static final String KEY_SLEEP_GUARD_USAGE_CURSOR_PACKAGES = "sleep_guard_usage_cursor_packages";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_CLICKED_COUNT = "sleep_guard_proxy_view_clicked_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_LONG_CLICKED_COUNT = "sleep_guard_proxy_view_long_clicked_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_SCROLLED_COUNT = "sleep_guard_proxy_view_scrolled_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_TEXT_CHANGED_COUNT = "sleep_guard_proxy_view_text_changed_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_SELECTED_COUNT = "sleep_guard_proxy_view_selected_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_VIEW_FOCUSED_COUNT = "sleep_guard_proxy_view_focused_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_WINDOW_CONTENT_CHANGED_COUNT = "sleep_guard_proxy_window_content_changed_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_WINDOW_STATE_CHANGED_COUNT = "sleep_guard_proxy_window_state_changed_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_WINDOWS_CHANGED_COUNT = "sleep_guard_proxy_windows_changed_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_SELF_PACKAGE_COUNT = "sleep_guard_proxy_self_package_count";
+    public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_TYPE = "sleep_guard_proxy_last_non_self_type";
+    public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_PACKAGE = "sleep_guard_proxy_last_non_self_package";
+    public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_WALL_MS = "sleep_guard_proxy_last_non_self_wall_ms";
+    public static final String KEY_SLEEP_GUARD_PROXY_LAST_NON_SELF_ELAPSED_MS = "sleep_guard_proxy_last_non_self_elapsed_ms";
     public static final String DEFAULT_USER_NAME = "宝宝";
     public static final String DEFAULT_COMPANION_NAME = "陪伴者";
     // 仅用于从旧公开版平滑迁移，新的 UI 和业务逻辑不再写入这两个键。

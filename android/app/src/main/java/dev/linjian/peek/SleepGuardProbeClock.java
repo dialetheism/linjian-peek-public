@@ -25,6 +25,11 @@ public final class SleepGuardProbeClock {
         return observedAtMs - eventAtMs;
     }
 
+    public static boolean shouldSchedulePersistence(boolean pendingPersist,
+                                                    boolean flushScheduled) {
+        return pendingPersist && !flushScheduled;
+    }
+
     public static final class Cursor {
         private long timestampMs;
         private final LinkedHashSet<String> packagesAtTimestamp = new LinkedHashSet<>();
